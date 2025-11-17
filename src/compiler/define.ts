@@ -26,10 +26,11 @@ export function defineSchema<Name extends string, S extends AnySchema>(
 
 const userSchema = defineSchema('user', () =>
   tk.object({
-    id: tk.number,
-    username: tk.option(tk.string),
+    // id: tk.number,
+    // username: tk.option(tk.string),
     createdAt: tk.instant,
     value: tk.u64,
+    values: tk.array(tk.number),
     // test: tk.choice({
     //   foo: null,
     //   bar: tk.tuple(tk.number, tk.bool),

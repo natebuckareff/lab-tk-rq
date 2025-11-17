@@ -10,6 +10,7 @@ import type {
 import type { ChoiceSchema, ChoiceSpec } from '../schemas/choice';
 import type { Code, State } from './codegen';
 import { addDependency, resolveCode } from './codegen';
+import { willAlwaysCopy } from './cow';
 
 export const compileSerialize = (
   schema: AnySchema,
@@ -90,11 +91,21 @@ export const compileSerialize = (
       if (spec.kind === 'id') {
         return { kind: 'id' };
       } else {
-        return {
-          kind: 'template',
-          arg: 'input',
-          body: `$input.map(item => ${resolveCode(spec, 'item')})`,
-        };
+        const cow = options?.cow && !willAlwaysCopy(schema);
+        if (cow) {
+          addDependency(state, 'cow', 'mapCow');
+          return {
+            kind: 'template',
+            arg: 'input',
+            body: `mapCow($input, item => ${resolveCode(spec, 'item')})`,
+          };
+        } else {
+          return {
+            kind: 'template',
+            arg: 'input',
+            body: `$input.map(item => ${resolveCode(spec, 'item')})`,
+          };
+        }
       }
     }
 
@@ -127,18 +138,6 @@ export const compileSerialize = (
   }
 };
 
-/*
-
-deser(copy, schema, value)
-
-input => {
-  const output = {};
-  deserializeCow(input, output, 'foo', deserialize);
-  deserializeCow(input, output, 'bar', deserialize);
-  deserializeCow(input, output, 'foo', deserialize);
-}
-*/
-
 const compileObject = (
   schema: ObjectSchema<ObjectSpec>,
   state: State,
@@ -146,10 +145,11 @@ const compileObject = (
 ): Code => {
   const s = schema as ObjectSchema<ObjectSpec>;
   const lines: string[] = [];
+  const cow = options?.cow && !willAlwaysCopy(schema);
 
   lines.push(`input => {`);
 
-  if (options?.cow) {
+  if (cow) {
     lines.push(`  const output = {};`);
   } else {
     lines.push(`  const copy = { ...input };`);
@@ -165,8 +165,8 @@ const compileObject = (
       const expr = `copy.${key}`;
       const result = resolveCode(serializer, expr);
 
-      if (options?.cow) {
-        addDependency(state, 'lib', 'setCowProperty');
+      if (cow) {
+        addDependency(state, 'cow', 'setCowProperty');
         lines.push(`  setCowProperty(input, output, '${key}', ${result});`);
       } else {
         lines.push(`  ${expr} = ${result};`);
@@ -178,8 +178,7 @@ const compileObject = (
     return { kind: 'id' };
   }
 
-  if (options?.cow) {
-    // XXX: cow option
+  if (cow) {
     lines.push(`  return output.value ?? input;`);
   } else {
     lines.push(`  return copy;`);
