@@ -1,0 +1,1 @@
+Weekend project to explore AOT compilation for typekind/remoteql.

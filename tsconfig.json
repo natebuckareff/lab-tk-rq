@@ -1,0 +1,6 @@
+{
+  "extends": ["./tsconfig.bun.json"],
+  "compilerOptions": {
+    "types": ["bun-types", "vite/client"]
+  }
+}
